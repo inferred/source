@@ -1,0 +1,27 @@
+dependency-reduced-pom.xml
+
+# Java class files
+*.class
+
+# generated files
+bin/
+gen/
+
+# Eclipse project files
+.classpath
+.project
+.test
+.testing
+
+# Intellij project files
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Gradle
+.gradletasknamecache
+.gradle/
+build/
+bin/
+
