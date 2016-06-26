@@ -15,15 +15,23 @@
  */
 package org.inferred.internal.testing.unit;
 
+import static com.google.common.collect.Lists.newArrayList;
+import static javax.lang.model.element.ElementKind.CLASS;
+import static javax.lang.model.element.ElementKind.INTERFACE;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import org.inferred.internal.testing.Partial;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ElementVisitor;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.PackageElement;
@@ -42,26 +50,101 @@ public abstract class ClassTypeImpl implements DeclaredType {
   private final Element enclosingElement;
   private final TypeMirror enclosingType;
   private final String simpleName;
+  private final ElementKind kind;
+  private final ImmutableSet<Modifier> modifiers;
+  private final ImmutableList<TypeMirror> interfaces;
+
+  public static class Builder {
+    Element enclosingElement = PackageElementImpl.create("org.example");
+    TypeMirror enclosingType = NoTypes.NONE;
+    String simpleName;
+    ElementKind kind = CLASS;
+    EnumSet<Modifier> modifiers = EnumSet.noneOf(Modifier.class);
+    List<TypeMirror> interfaces = newArrayList();
+
+    private Builder(String simpleName) {
+      this.simpleName = simpleName;
+    }
+
+    public Builder inPackage(String qualifiedName) {
+      this.enclosingElement = PackageElementImpl.create(qualifiedName);
+      this.enclosingType = NoTypes.NONE;
+      return this;
+    }
+
+    public Builder nestedIn(TypeElement enclosingElement) {
+      this.enclosingElement = enclosingElement;
+      this.enclosingType = NoTypes.NONE;
+      return this;
+    }
+
+    public Builder innerClassIn(DeclaredType enclosingType) {
+      this.enclosingElement = enclosingType.asElement();
+      this.enclosingType = enclosingType;
+      return this;
+    }
+
+    public Builder implementing(TypeMirror iface) {
+      interfaces.add(iface);
+      return this;
+    }
+
+    public Builder implementing(TypeElement iface) {
+      interfaces.add(iface.asType());
+      return this;
+    }
+
+    public ClassTypeImpl asMirror() {
+      return Partial.of(ClassTypeImpl.class, this);
+    }
+
+    public TypeElement asElement() {
+      return asMirror().asElement();
+    }
+  }
+
+  /**
+   * Returns a {@link Builder} initially configured to create a {@link DeclaredType} for a
+   * top-level class called {@code simpleName}, in package {@code org.example}, with no
+   * supertype or interfaces.
+   */
+  public static Builder type(String simpleName) {
+    return new Builder(simpleName);
+  }
+
+  /**
+   * Returns a {@link Builder} initially configured to create a {@link DeclaredType} for a
+   * top-level interface called {@code simpleName}, in package {@code org.example}, with no
+   * super-interfaces.
+   */
+  public static Builder iface(String simpleName) {
+    Builder builder = new Builder(simpleName);
+    builder.kind = INTERFACE;
+    builder.modifiers.add(Modifier.ABSTRACT);
+    return builder;
+  }
 
   public static ClassTypeImpl newTopLevelClass(String qualifiedName) {
     String pkg = qualifiedName.substring(0, qualifiedName.lastIndexOf('.'));
     String simpleName = qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
-    PackageElement enclosingElement = PackageElementImpl.create(pkg);
-    return Partial.of(ClassTypeImpl.class, enclosingElement, NoTypes.NONE, simpleName);
+    return type(simpleName).inPackage(pkg).asMirror();
   }
 
   public static ClassTypeImpl newNestedClass(TypeElement enclosingType, String simpleName) {
-    return Partial.of(ClassTypeImpl.class, enclosingType, NoTypes.NONE, simpleName);
+    return type(simpleName).nestedIn(enclosingType).asMirror();
   }
 
   public static ClassTypeImpl newInnerClass(DeclaredType enclosingType, String simpleName) {
-    return Partial.of(ClassTypeImpl.class, enclosingType.asElement(), enclosingType, simpleName);
+    return type(simpleName).innerClassIn(enclosingType).asMirror();
   }
 
-  ClassTypeImpl(Element enclosingElement, TypeMirror enclosingType, String simpleName) {
-    this.enclosingElement = enclosingElement;
-    this.enclosingType = enclosingType;
-    this.simpleName = simpleName;
+  ClassTypeImpl(Builder builder) {
+    this.enclosingElement = builder.enclosingElement;
+    this.enclosingType = builder.enclosingType;
+    this.simpleName = builder.simpleName;
+    this.kind = builder.kind;
+    this.modifiers = ImmutableSet.copyOf(builder.modifiers);
+    this.interfaces = ImmutableList.copyOf(builder.interfaces);
   }
 
   @Override
@@ -122,7 +205,7 @@ public abstract class ClassTypeImpl implements DeclaredType {
 
     @Override
     public ElementKind getKind() {
-      return ElementKind.CLASS;
+      return kind;
     }
 
     @Override
@@ -152,6 +235,11 @@ public abstract class ClassTypeImpl implements DeclaredType {
     }
 
     @Override
+    public ImmutableList<TypeMirror> getInterfaces() {
+      return interfaces;
+    }
+
+    @Override
     public List<? extends TypeParameterElement> getTypeParameters() {
       return ImmutableList.of();
     }
@@ -159,6 +247,26 @@ public abstract class ClassTypeImpl implements DeclaredType {
     @Override
     public Element getEnclosingElement() {
       return enclosingElement;
+    }
+
+    @Override
+    public Set<Modifier> getModifiers() {
+      return modifiers;
+    }
+
+    @Override
+    public String toString() {
+      return kind.toString().toLowerCase() + " " + ClassTypeImpl.this.toString();
+    }
+
+    @Override
+    public int hashCode() {
+      return toString().hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return (o instanceof ClassElementImpl) && toString().equals(o.toString());
     }
   }
 }
