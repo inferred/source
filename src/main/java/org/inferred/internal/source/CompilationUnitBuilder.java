@@ -109,6 +109,9 @@ public class CompilationUnitBuilder implements SourceBuilder {
     } catch (UnsupportedClassVersionError e) {
       // Formatter requires Java 7+; do no formatting in Java 6.
       return source;
+    } catch (Error e) {
+      // There's lots of weird ways this can fail; fall back to bad formatting
+      return source;
     } catch (Exception e) {
       StringBuilder message = new StringBuilder()
           .append("Formatter failed:\n")
