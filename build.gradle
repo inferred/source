@@ -63,6 +63,13 @@ dependencies {
   testCompile mockito
 }
 
+task testingJar(type: Jar) {
+  dependsOn tasks.testingClasses
+  from tasks.compileTestingJava.outputs, tasks.processTestingResources.outputs
+  appendix = 'testing'
+  assemble.dependsOn it
+}
+
 tasks.withType(Test) {
   testLogging {
     events "passed", "skipped", "failed"
