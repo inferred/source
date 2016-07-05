@@ -25,3 +25,5 @@ gen/
 build/
 bin/
 
+# Code signing
+*.asc
