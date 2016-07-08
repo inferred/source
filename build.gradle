@@ -90,14 +90,57 @@ sourceSets {
 }
 
 task testingJar(type: Jar) {
+  group = BasePlugin.BUILD_GROUP
+  description = 'Assembles a jar archive containing the testing classes.'
   dependsOn tasks.testingClasses
-  from tasks.compileTestingJava.outputs, tasks.processTestingResources.outputs
   baseName = 'source-testing'
+  from tasks.compileTestingJava.outputs, tasks.processTestingResources.outputs
   assemble.dependsOn it
 }
 
 artifacts {
   archives testingJar
+}
+
+afterEvaluate {
+  if (extraArchive.javadoc) {
+    task testingJavadoc(type: Javadoc) {
+      group = JavaBasePlugin.DOCUMENTATION_GROUP
+      description = 'Generates Javadoc API documentation for the testing source code.'
+      classpath = sourceSets.testing.output + sourceSets.testing.compileClasspath
+      source = sourceSets.testing.allJava
+      destinationDir = file("$docsDir/testing-javadoc")
+      title = "source-testing $version"
+    }
+
+    task testingJavadocJar(type: Jar) {
+      group = BasePlugin.BUILD_GROUP
+      description = 'Assembles a jar archive containing the generated Javadoc ' +
+          'API documentation of the testing source code.'
+      baseName = 'source-testing'
+      classifier = 'javadoc'
+      from tasks.testingJavadoc
+    }
+
+    artifacts {
+      archives testingJavadocJar
+    }
+  }
+
+  if (extraArchive.sources) {
+    task testingSourcesJar(type: Jar) {
+      group = BasePlugin.BUILD_GROUP
+      description = 'Assembles a jar archive containing the testing sources of ' +
+          'this project.'
+      baseName = 'source-testing'
+      classifier = 'sources'
+      from project.sourceSets.testing.allSource
+    }
+
+    artifacts {
+      archives testingSourcesJar
+    }
+  }
 }
 
 //// Checkstyle //////////////////////////////////////////////////
