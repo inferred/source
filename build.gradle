@@ -15,6 +15,7 @@ plugins {
   id 'com.bmuschko.nexus' version '2.3.1'
   id 'com.palantir.git-version' version '0.2.0' 
 }
+apply plugin: 'io.codearte.nexus-staging'
 
 repositories {
   mavenCentral()
@@ -207,13 +208,28 @@ tasks.withType(GenerateEclipseProject, { generateTask ->
 })
 
 //// Publication /////////////////////////////////////////////////
+project.ext.testingPoms = []
+afterEvaluate {
+  project.ext.poms += project.ext.testingPoms
+}
+
 group = 'org.inferred.internal'
 version = (System.env.TRAVIS_TAG ?: gitVersion()).replaceAll('^v','')
 
 modifyPom {
   project {
-    name 'Source'
-    description 'A Java library for code generation'
+    switch (artifactId) {
+      case 'source':
+        name 'Source'
+        description 'A Java library for code generation'
+        break
+      case 'source-testing':
+        name 'Source Testing'
+        description 'A Java library for testing code generators'
+        break
+      default:
+        throw new RuntimeException("Unexpected artifact ID $artifactId")
+    }
     url 'https://github.com/inferred/source'
 
     scm {
@@ -242,12 +258,13 @@ modifyPom {
 
 tasks.withType(Upload) {
   repositories.withType(MavenResolver) {
-    addFilter('source') { artifact, file ->
+    pom = addFilter('source') { artifact, file ->
       artifact.name == 'source'
     }
-    def testingPom = addFilter('source-testing') { artifact, file ->
+    MavenPom testingPom = addFilter('source-testing') { artifact, file ->
       artifact.name == 'source-testing'
     }
+    testingPoms += [ testingPom ]
     testingPom.scopeMappings.addMapping(
         MavenPlugin.COMPILE_PRIORITY,
         configurations.testingCompile,
@@ -267,8 +284,6 @@ if (System.env.PGP_KEY_ID) {
 ext['nexusUsername'] = System.env.NEXUS_USERNAME
 ext['nexusPassword'] = 'o' + System.env.NEXUS_PASSWORD
 // TODO: Fix password when Travis starts working again
-
-apply plugin: 'io.codearte.nexus-staging'
 
 nexusStaging {
   packageGroup = 'org.inferred'
