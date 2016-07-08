@@ -78,8 +78,12 @@ dependencies {
 task testingJar(type: Jar) {
   dependsOn tasks.testingClasses
   from tasks.compileTestingJava.outputs, tasks.processTestingResources.outputs
-  appendix = 'testing'
+  baseName = 'source-testing'
   assemble.dependsOn it
+}
+
+artifacts {
+  archives testingJar
 }
 
 tasks.withType(Test) {
@@ -141,6 +145,25 @@ modifyPom {
         timezone 'Europe/London'
       }
     }
+  }
+}
+
+tasks.withType(Upload) {
+  repositories.withType(MavenResolver) {
+    addFilter('source') { artifact, file ->
+      artifact.name == 'source'
+    }
+    def testingPom = addFilter('source-testing') { artifact, file ->
+      artifact.name == 'source-testing'
+    }
+    testingPom.scopeMappings.addMapping(
+        MavenPlugin.COMPILE_PRIORITY,
+        configurations.testingCompile,
+        Conf2ScopeMappingContainer.COMPILE)
+    testingPom.scopeMappings.addMapping(
+        MavenPlugin.RUNTIME_PRIORITY,
+        configurations.testingRuntime,
+        Conf2ScopeMappingContainer.RUNTIME)
   }
 }
 
