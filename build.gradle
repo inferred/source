@@ -259,9 +259,11 @@ tasks.withType(Upload) {
   }
 }
 
-ext['signing.keyId'] = System.env.PGP_KEY_ID
-ext['signing.password'] = System.env.PGP_PASSWORD
-ext['signing.secretKeyRingFile'] = System.env.PGP_SECRET_KEY_RING_FILE
+if (System.env.PGP_KEY_ID) {
+  ext['signing.keyId'] = System.env.PGP_KEY_ID
+  ext['signing.password'] = System.env.PGP_PASSWORD
+  ext['signing.secretKeyRingFile'] = System.env.PGP_SECRET_KEY_RING_FILE
+}
 ext['nexusUsername'] = System.env.NEXUS_USERNAME
 ext['nexusPassword'] = 'o' + System.env.NEXUS_PASSWORD
 // TODO: Fix password when Travis starts working again
