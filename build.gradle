@@ -20,26 +20,10 @@ repositories {
   mavenCentral()
 }
 
-configurations {
-  testingCompile.extendsFrom compile
-  testingCompileOnly.extendsFrom compileOnly
-  testCompile.extendsFrom testingCompile
-  testCompileOnly.extendsFrom testingCompileOnly
-}
-
 sourceSets {
-  testing {
-    java {
-      compileClasspath += main.output
-      runtimeClasspath += main.output
-    }
-  }
-  test {
-    java {
-      compileClasspath += testing.output
-      runtimeClasspath += testing.output
-    }
-  }
+  main     // Code generation utilities (org.inferred.internal.source)
+  testing  // Testing utilities (org.inferred.internal.source-testing)
+  test     // Unit and integration tests for both main and testing
 }
 
 sourceCompatibility = 1.6
@@ -75,6 +59,36 @@ dependencies {
   testCompile mockito
 }
 
+tasks.withType(Test) {
+  testLogging {
+    events "passed", "skipped", "failed"
+  }
+}
+
+//// Testing JAR /////////////////////////////////////////////////
+
+configurations {
+  testingCompile.extendsFrom compile
+  testingCompileOnly.extendsFrom compileOnly
+  testCompile.extendsFrom testingCompile
+  testCompileOnly.extendsFrom testingCompileOnly
+}
+
+sourceSets {
+  testing {
+    java {
+      compileClasspath += main.output
+      runtimeClasspath += main.output
+    }
+  }
+  test {
+    java {
+      compileClasspath += testing.output
+      runtimeClasspath += testing.output
+    }
+  }
+}
+
 task testingJar(type: Jar) {
   dependsOn tasks.testingClasses
   from tasks.compileTestingJava.outputs, tasks.processTestingResources.outputs
@@ -84,12 +98,6 @@ task testingJar(type: Jar) {
 
 artifacts {
   archives testingJar
-}
-
-tasks.withType(Test) {
-  testLogging {
-    events "passed", "skipped", "failed"
-  }
 }
 
 //// Checkstyle //////////////////////////////////////////////////
@@ -113,6 +121,47 @@ eclipse.project {
   natures 'net.sf.eclipsecs.core.CheckstyleNature'
   buildCommand 'net.sf.eclipsecs.core.CheckstyleBuilder'
 }
+
+import org.gradle.plugins.ide.eclipse.GenerateEclipseProject
+tasks.withType(GenerateEclipseProject, { generateTask ->
+  afterEvaluate {
+    generateTask.projectModel.natures 'net.sf.eclipsecs.core.CheckstyleNature'
+    generateTask.projectModel.buildCommand 'net.sf.eclipsecs.core.CheckstyleBuilder'
+  }
+
+  def taskName = generateTask.name.replaceAll('Project$','') + 'Checkstyle'
+  def createTask = task(taskName) {
+    ext.enabled = true
+    ext.outputFile = { new File(generateTask.outputFile.parentFile, '.checkstyle') }
+    outputs.file outputFile
+    doLast {
+      def output = file(outputFile)
+      output.parentFile.mkdirs()
+      output.delete()
+      if (enabled) {
+        output << """
+          <?xml version="1.0" encoding="UTF-8"?>
+
+          <fileset-config file-format-version="1.2.0" simple-config="false" sync-formatter="false">
+            <local-check-config name="Gradle configuration file" location="${checkstyle.configFile}" type="external" description="">
+              <additional-data name="protect-config-file" value="true"/>
+            </local-check-config>
+            <fileset name="all" enabled="true" check-config-name="Gradle configuration file" local="true">
+              <file-match-pattern match-pattern=".java\$" include-pattern="true"/>
+            </fileset>
+            <filter name="DerivedFiles" enabled="true"/>
+          </fileset-config>
+        """.replaceFirst('\n', '').stripIndent()
+      }
+    }
+    tasks.eclipse.dependsOn it
+  }
+  def cleanTaskName = 'clean' + taskName.substring(0, 1).toUpperCase() + taskName.substring(1, taskName.length())
+  task(cleanTaskName, type: Delete) {
+    delete createTask.outputFile
+    tasks.cleanEclipse.dependsOn it
+  }
+})
 
 //// Publication /////////////////////////////////////////////////
 group = 'org.inferred.internal'
@@ -193,24 +242,27 @@ eclipse.classpath {
   plusConfigurations.clear()
   plusConfigurations += [ configurations.compileClasspath ]
 }
-// Exclude everything in src except src/main
-eclipse.project.file.withXml {
-  if (asNode().find { it.name() == 'filteredResources' } == null) {
-    asNode().append(new XmlParser().parseText("""
-      <filteredResources>
-        <filter>
-          <id>""" + System.currentTimeMillis() + """</id>
-          <name>src</name>
-          <type>9</type>
-          <matcher>
-            <id>org.eclipse.ui.ide.multiFilter</id>
-            <arguments>1.0-name-matches-false-false-main</arguments>
-          </matcher>
-        </filter>
-      </filteredResources>
-    """))
+void setFilter(project, path, filter) {
+  project.file.withXml {
+    if (asNode().find { it.name() == 'filteredResources' } == null) {
+      asNode().append(new XmlParser().parseText("""
+        <filteredResources>
+          <filter>
+            <id>""" + System.currentTimeMillis() + """</id>
+            <name>${path}</name>
+            <type>9</type>
+            <matcher>
+              <id>org.eclipse.ui.ide.multiFilter</id>
+              <arguments>1.0-name-matches-true-false-${filter}</arguments>
+            </matcher>
+          </filter>
+        </filteredResources>
+      """))
+    }
   }
 }
+// Exclude everything in src except src/main
+setFilter(eclipse.project, 'src', 'main')
 
 import org.gradle.plugins.ide.eclipse.model.EclipseModel
 extensions.create("eclipseTesting", EclipseModel)
@@ -227,9 +279,14 @@ task eclipseTestingProject(type: GenerateEclipseProject) {
   projectModel.natures "org.eclipse.jdt.core.javanature"
   projectModel.natures 'net.sf.eclipsecs.core.CheckstyleNature'
   projectModel.buildCommand 'net.sf.eclipsecs.core.CheckstyleBuilder'
-  projectModel.linkedResource name: 'src', type:'2', location: 'PARENT-1-PROJECT_LOC/src/testing/java'
+  projectModel.linkedResource name: 'src', type:'2', location: 'PARENT-1-PROJECT_LOC/src'
+  setFilter(projectModel, 'src', 'testing')
   eclipseTesting.project = projectModel
   tasks.eclipse.dependsOn it
+}
+task cleanEclipseTestingProject(type: Delete) {
+  delete file('.testing/.project')
+  tasks.cleanEclipse.dependsOn it
 }
 task eclipseTestProject(type: GenerateEclipseProject) {
   description = 'Generates the Eclipse test project file.'
@@ -240,9 +297,14 @@ task eclipseTestProject(type: GenerateEclipseProject) {
   projectModel.natures "org.eclipse.jdt.core.javanature"
   projectModel.natures 'net.sf.eclipsecs.core.CheckstyleNature'
   projectModel.buildCommand 'net.sf.eclipsecs.core.CheckstyleBuilder'
-  projectModel.linkedResource name: 'src', type:'2', location: 'PARENT-1-PROJECT_LOC/src/test/java'
+  projectModel.linkedResource name: 'src', type:'2', location: 'PARENT-1-PROJECT_LOC/src'
+  setFilter(projectModel, 'src', 'test')
   eclipseTest.project = projectModel
   tasks.eclipse.dependsOn it
+}
+task cleanEclipseTestProject(type: Delete) {
+  delete file('.test/.project')
+  tasks.cleanEclipse.dependsOn it
 }
 
 import org.gradle.plugins.ide.eclipse.GenerateEclipseJdt
@@ -256,6 +318,10 @@ task eclipseTestingJdt(type: GenerateEclipseJdt) {
   jdt.conventionMapping.map('javaRuntimeName') { 'JavaSE-' + jdt.targetCompatibility }
   tasks.eclipse.dependsOn it
 }
+task cleanEclipseTestingJdt(type: Delete) {
+  delete file('.testing/.settings/org.eclipse.jdt.core.prefs')
+  tasks.cleanEclipse.dependsOn it
+}
 task eclipseTestJdt(type: GenerateEclipseJdt) {
   description = 'Generates the Eclipse test JDT settings file.'
   inputFile = project.file('.test/.settings/org.eclipse.jdt.core.prefs')
@@ -265,6 +331,10 @@ task eclipseTestJdt(type: GenerateEclipseJdt) {
   jdt.conventionMapping.map('targetCompatibility') { JavaVersion.toVersion(compileTestJava.targetCompatibility) }
   jdt.conventionMapping.map('javaRuntimeName') { 'JavaSE-' + jdt.targetCompatibility }
   tasks.eclipse.dependsOn it
+}
+task cleanEclipseTestJdt(type: Delete) {
+  delete file('.test/.settings/org.eclipse.jdt.core.prefs')
+  tasks.cleanEclipse.dependsOn it
 }
 
 import org.gradle.api.internal.plugins.DslObject
@@ -297,6 +367,10 @@ task eclipseTestingClasspath(type: GenerateEclipseClasspath) {
   eclipseTesting.classpath = classpath
   tasks.eclipse.dependsOn it
 }
+task cleanEclipseTestingClasspath(type: Delete) {
+  delete file('.testing/.classpath')
+  tasks.cleanEclipse.dependsOn it
+}
 task eclipseTestClasspath(type: GenerateEclipseClasspath) {
   description = 'Generates the Eclipse test classpath file.'
   inputFile = project.file('.test/.classpath')
@@ -323,35 +397,23 @@ task eclipseTestClasspath(type: GenerateEclipseClasspath) {
   eclipseTest.classpath = classpath
   tasks.eclipse.dependsOn it
 }
-
-eclipseTesting.classpath.file.withXml { xml ->
-  xml.asNode().appendNode('classpathentry', [
-      combineaccessrules: 'false',
-      kind: 'src',
-      path: '/' + project.name
-  ])
-  if (xml.asNode().find { it.@kind == 'src' && it.@path == 'src' } == null) {
-    xml.asNode().appendNode('classpathentry', [
-        kind: 'src',
-        path: 'src'
-    ])
-  }
+task cleanEclipseTestClasspath(type: Delete) {
+  delete file('.test/.classpath')
+  tasks.cleanEclipse.dependsOn it
 }
-eclipseTest.classpath.file.withXml { xml ->
-  xml.asNode().appendNode('classpathentry', [
-      combineaccessrules: 'false',
-      kind: 'src',
-      path: '/' + project.name
-  ])
-  xml.asNode().appendNode('classpathentry', [
-      combineaccessrules: 'false',
-      kind: 'src',
-      path: '/' + project.name + '-testing'
-  ])
-  if (xml.asNode().find { it.@kind == 'src' && it.@path == 'src' } == null) {
-    xml.asNode().appendNode('classpathentry', [
-        kind: 'src',
-        path: 'src'
-    ])
-  }
+
+import org.gradle.plugins.ide.eclipse.model.ProjectDependency
+import org.gradle.plugins.ide.eclipse.model.SourceFolder
+eclipseTesting.classpath.file.beforeMerged {
+  entries += [
+    new SourceFolder('/' + project.name, null),
+    new SourceFolder('src/testing/java', null)
+  ]
+}
+eclipseTest.classpath.file.beforeMerged {
+  entries += [
+    new SourceFolder('/' + project.name, null),
+    new SourceFolder('/' + project.name + '-testing', null),
+    new SourceFolder('src/test/java', null)
+  ]
 }

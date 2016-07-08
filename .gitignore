@@ -8,6 +8,7 @@ bin/
 gen/
 
 # Eclipse project files
+.checkstyle
 .classpath
 .project
 .test
