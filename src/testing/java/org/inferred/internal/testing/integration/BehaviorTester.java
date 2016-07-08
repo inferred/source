@@ -77,7 +77,7 @@ import javax.tools.ToolProvider;
  * be hard-coded in the test or read in from a resource file. Here is an example for
  * a hypothetical Builder generator:
  *
- * <blockquote><code><pre>
+ * <blockquote><pre>
  * new {@link #BehaviorTester()}
  *     {@link #with(Processor) .with}(builderGeneratingProcessor)
  *     {@link #with(JavaFileObject) .with}(new {@link SourceBuilder}()
@@ -101,7 +101,7 @@ import javax.tools.ToolProvider;
  *         .addLine("assertEquals(\"Bar\", instance.getStrings().get(1));")
  *         .build())
  *     {@link #runTest()};
- * </pre></code></blockquote>
+ * </pre></blockquote>
  */
 public class BehaviorTester {
   private final List<Processor> processors = new ArrayList<Processor>();

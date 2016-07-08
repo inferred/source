@@ -29,7 +29,7 @@ import org.junit.runners.model.Statement;
  * allowing top-level types and even code with errors in to be contained within a single test
  * method.
  *
- * <blockquote><code><pre>
+ * <blockquote><pre>
  * {@link org.junit.runner.RunWith @RunWith}({@link org.junit.runners.JUnit4 JUnit4}.class)
  * public class TypeUtilsTest {
  *
@@ -44,7 +44,7 @@ import org.junit.runners.model.Statement;
  *         "  public void aMethod(int anArg);",
  *         "}");
  *     ...
- * </pre></code></blockquote>
+ * </pre></blockquote>
  */
 public class ModelRule extends Model implements TestRule {
 

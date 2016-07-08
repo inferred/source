@@ -71,7 +71,7 @@ import javax.tools.JavaFileObject;
  * Java source code snippets, allowing top-level types and even code with errors in to be contained
  * within a single test method.
  *
- * <blockquote><code><pre>
+ * <blockquote><pre>
  * {@link Model} model = {@link Model#create()};
  * TypeMirror intType = model.{@link #typeMirror}(int.class);
  * TypeElement myType = model.{@link #newType}(
@@ -81,18 +81,18 @@ import javax.tools.JavaFileObject;
  *     "}");
  * ...
  * model.{@link #destroy()};
- * </pre></code></blockquote>
+ * </pre></blockquote>
  *
  * <p>To save walking the hierarchy of elements to find an inner class, or other element, you can
  * grab any annotatable element with {@link #newElementWithMarker} (which uses {@code --->} as an
  * easily-spotted element identifier) or {@link #newElementAnnotatedWith} (which uses a
  * user-supplied annotation as the element identifier):
  *
- * <blockquote><code><pre>
+ * <blockquote><pre>
  * VariableElement anArg = (VariableElement) model.{@link #newElementWithMarker}(
  *     "package my.test.package;",
  *     "public class MyType2 {",
- *     "  public void aMethod(---> int anArg);",
+ *     "  public void aMethod(---&gt; int anArg);",
  *     "}");
  * ExecutableElement aMethod = (ExecutableElement) model.{@link #newElementAnnotatedWith}(
  *     Deprecated.class,
@@ -100,7 +100,7 @@ import javax.tools.JavaFileObject;
  *     "public class MyType3 {",
  *     "  {@literal @}Deprecated public void aMethod(int anArg);",
  *     "}");
- * </pre></code></blockquote>
+ * </pre></blockquote>
  */
 public class Model {
 
@@ -224,16 +224,16 @@ public class Model {
   }
 
   /**
-   * Parses the supplied code, returning the {@link Element} marked with "--->". (Only
+   * Parses the supplied code, returning the {@link Element} marked with {@code --->}. (Only
    * elements that can be annotated in Java can be found this way; the marker is substituted with
    * an annotation internally.)
    *
-   * <blockquote><code><pre>
+   * <blockquote><pre>
    * Element element = model.newElementWithMarker(
    *     "interface MyType {",
-   *     "  void myMethod(---> int arg);",
+   *     "  void myMethod(---&gt; int arg);",
    *     "}")
-   * </pre></code></blockquote>
+   * </pre></blockquote>
    */
   public Element newElementWithMarker(final String... code) {
     String codeString = Joiner.on("\n").join(code);
@@ -246,12 +246,12 @@ public class Model {
   /**
    * Parses the supplied code, returning the {@link Element} annotated with the given annotation.
    *
-   * <blockquote><code><pre>
+   * <blockquote><pre>
    * Element element = model.newElementAnnotatedWith(MyAnnotation.class
    *     "interface MyType {",
    *     "  void myMethod(@MyAnnotation int arg);",
    *     "}")
-   * </pre></code></blockquote>
+   * </pre></blockquote>
    */
   public Element newElementAnnotatedWith(
       Class<? extends Annotation> annotationType,
