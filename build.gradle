@@ -282,8 +282,7 @@ if (System.env.PGP_KEY_ID) {
   ext['signing.secretKeyRingFile'] = System.env.PGP_SECRET_KEY_RING_FILE
 }
 ext['nexusUsername'] = System.env.NEXUS_USERNAME
-ext['nexusPassword'] = 'o' + System.env.NEXUS_PASSWORD
-// TODO: Fix password when Travis starts working again
+ext['nexusPassword'] = System.env.NEXUS_PASSWORD
 
 nexusStaging {
   packageGroup = 'org.inferred'
